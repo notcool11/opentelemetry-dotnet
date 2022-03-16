@@ -87,7 +87,6 @@ namespace OpenTelemetry.Context.Propagation
                 OpenTelemetryApiEventSource.Log.ActivityContextExtractException(nameof(JaegerPropagator), ex);
             }
 
-            // in case of exception indicate to upstream that there is no parseable context from the top
             return context;
         }
 
@@ -145,7 +144,7 @@ namespace OpenTelemetry.Context.Propagation
             }
 
             var traceComponents = jaegerHeader.Split(JaegerDelimiters, StringSplitOptions.RemoveEmptyEntries);
-            if (traceComponents.Length < 4)
+            if (traceComponents.Length != 4)
             {
                 return false;
             }
@@ -167,7 +166,7 @@ namespace OpenTelemetry.Context.Propagation
             spanId = ActivitySpanId.CreateFromString(spanIdStr.AsSpan());
 
             var traceFlagsStr = traceComponents[3];
-            if (string.IsNullOrWhiteSpace(traceFlagsStr) && SampledValue.Equals(traceFlagsStr))
+            if (SampledValue.Equals(traceFlagsStr))
             {
                 traceOptions |= ActivityTraceFlags.Recorded;
             }
