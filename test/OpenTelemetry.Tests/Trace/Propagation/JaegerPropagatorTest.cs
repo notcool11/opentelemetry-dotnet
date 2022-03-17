@@ -53,8 +53,8 @@ namespace OpenTelemetry.Context.Propagation.Tests
         public void ExtractReturnsOriginalContextIfContextIsAlreadyValid()
         {
             // arrange
-            var traceId = ActivityTraceId.CreateFromString("".PadLeft(32, '1').AsSpan());
-            var spanId = ActivitySpanId.CreateFromString("".PadLeft(16, '1').AsSpan());
+            var traceId = ActivityTraceId.CreateFromString(TraceId.AsSpan());
+            var spanId = ActivitySpanId.CreateFromString(SpanId.AsSpan());
             var propagationContext = new PropagationContext(
                 new ActivityContext(traceId, spanId, ActivityTraceFlags.Recorded, isRemote: true),
                 default);
@@ -110,7 +110,12 @@ namespace OpenTelemetry.Context.Propagation.Tests
             // arrange
             var propagationContext = default(PropagationContext);
 
-            var formattedHeader = $"{traceId}{delimiter}{spanId}{delimiter}{parentSpanId}{delimiter}{flags}";
+            var formattedHeader = string.Join(
+                delimiter,
+                traceId,
+                spanId,
+                parentSpanId,
+                flags);
 
             var headers = new Dictionary<string, string[]> { { JaegerHeader, new[] { formattedHeader } } };
 
@@ -129,7 +134,12 @@ namespace OpenTelemetry.Context.Propagation.Tests
             // arrange
             var propagationContext = default(PropagationContext);
 
-            var formattedHeader = $"{traceId}{delimiter}{spanId}{delimiter}{parentSpanId}{delimiter}{flags}";
+            var formattedHeader = string.Join(
+                JaegerDelimiter,
+                traceId,
+                spanId,
+                parentSpanId,
+                flags);
 
             var headers = new Dictionary<string, string[]> { { JaegerHeader, new[] { formattedHeader } } };
 
@@ -140,6 +150,85 @@ namespace OpenTelemetry.Context.Propagation.Tests
             Assert.Equal(traceId.PadLeft(TraceId.Length, '0'), result.ActivityContext.TraceId.ToString());
             Assert.Equal(spanId.PadLeft(SpanId.Length, '0'), result.ActivityContext.SpanId.ToString());
             Assert.Equal(flags == "1" ? ActivityTraceFlags.Recorded : ActivityTraceFlags.None, result.ActivityContext.TraceFlags);
+        }
+
+        [Fact]
+        public void InjectDoesNoopIfContextIsInvalid()
+        {
+            // arrange
+            var propagationContext = default(PropagationContext);
+
+            var headers = new Dictionary<string, string>();
+
+            // act
+            new JaegerPropagator().Inject(propagationContext, headers, Setter);
+
+            // assert
+            Assert.Empty(headers);
+        }
+
+        [Fact]
+        public void InjectDoesNoopIfCarrierIsNull()
+        {
+            // arrange
+            var traceId = ActivityTraceId.CreateFromString(TraceId.AsSpan());
+            var spanId = ActivitySpanId.CreateFromString(SpanId.AsSpan());
+            var propagationContext = new PropagationContext(
+                new ActivityContext(traceId, spanId, ActivityTraceFlags.Recorded, isRemote: true),
+                default);
+
+            // act
+            new JaegerPropagator().Inject(propagationContext, null, Setter);
+
+            // assert
+        }
+
+        [Fact]
+        public void InjectDoesNoopIfSetterIsNull()
+        {
+            // arrange
+            var traceId = ActivityTraceId.CreateFromString(TraceId.AsSpan());
+            var spanId = ActivitySpanId.CreateFromString(SpanId.AsSpan());
+            var propagationContext = new PropagationContext(
+                new ActivityContext(traceId, spanId, ActivityTraceFlags.Recorded, isRemote: true),
+                default);
+
+            var headers = new Dictionary<string, string>();
+
+            // act
+            new JaegerPropagator().Inject(propagationContext, headers, null);
+
+            // assert
+            Assert.Empty(headers);
+        }
+
+        [Theory]
+        [InlineData(FlagSampled)]
+        [InlineData(FlagNotSampled)]
+        public void InjectWillAddJaegerFormattedTraceToCarrier(string sampledFlag)
+        {
+            // arrange
+            var traceId = ActivityTraceId.CreateFromString(TraceId.AsSpan());
+            var spanId = ActivitySpanId.CreateFromString(SpanId.AsSpan());
+            var flags = sampledFlag == "1" ? ActivityTraceFlags.Recorded : ActivityTraceFlags.None;
+
+            var propagationContext = new PropagationContext(new ActivityContext(traceId, spanId, flags, isRemote: true), default);
+
+            var expectedValue = string.Join(
+                JaegerDelimiter,
+                traceId,
+                spanId,
+                ParentSpanId,
+                sampledFlag);
+
+            var headers = new Dictionary<string, string>();
+
+            // act
+            new JaegerPropagator().Inject(propagationContext, headers, Setter);
+
+            // assert
+            Assert.Single(headers);
+            Assert.Equal(expectedValue, headers[JaegerHeader]);
         }
     }
 }

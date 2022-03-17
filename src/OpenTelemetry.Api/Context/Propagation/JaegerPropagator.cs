@@ -29,8 +29,8 @@ namespace OpenTelemetry.Context.Propagation
     {
         internal const string JaegerHeader = "uber-trace-id";
         internal const string JaegerDelimiter = ":";
-        internal const string JaegerDelimiterEncoded = "%3A";
-        internal const string SampledValue = "1"; // hardcoded to 1 for always on
+        internal const string JaegerDelimiterEncoded = "%3A"; // while the spec defines the delimiter as a ':', some clients will url encode headers.
+        internal const string SampledValue = "1";
 
         internal static readonly string[] JaegerDelimiters = { JaegerDelimiter, JaegerDelimiterEncoded };
 
@@ -118,13 +118,14 @@ namespace OpenTelemetry.Context.Propagation
 
             var flags = (context.ActivityContext.TraceFlags & ActivityTraceFlags.Recorded) != 0 ? "1" : "0";
 
-            var jaeger = string.Concat(
+            var jaegerTrace = string.Join(
+                JaegerDelimiter,
                 context.ActivityContext.TraceId.ToHexString(),
                 context.ActivityContext.SpanId.ToHexString(),
                 defaultParentSpanId,
                 flags);
 
-            setter(carrier, JaegerHeader, jaeger);
+            setter(carrier, JaegerHeader, jaegerTrace);
         }
 
         internal static bool TryExtractTraceContext(string jaegerHeader, out ActivityTraceId traceId, out ActivitySpanId spanId, out ActivityTraceFlags traceOptions)
