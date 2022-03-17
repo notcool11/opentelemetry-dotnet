@@ -15,9 +15,9 @@
 // </copyright>
 
 using Microsoft.Extensions.Logging;
-using OpenTelemetry.Logs;
 
-namespace GettingStarted;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
 
 public class Program
 {
@@ -25,11 +25,19 @@ public class Program
     {
         using var loggerFactory = LoggerFactory.Create(builder =>
         {
-            builder.AddOpenTelemetry(options => options
-                .AddConsoleExporter());
+            builder.AddOpenTelemetry(options =>
+            {
+                options.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(
+                    serviceName: "MyService",
+                    serviceVersion: "1.0.0"));
+                options.AddConsoleExporter();
+            });
         });
 
         var logger = loggerFactory.CreateLogger<Program>();
-        logger.LogInformation("Hello from {name} {price}.", "tomato", 2.99);
+
+        logger.LogInformation("Hello Information");
+        logger.LogWarning("Hello Warning");
+        logger.LogError("Hello Error");
     }
 }
